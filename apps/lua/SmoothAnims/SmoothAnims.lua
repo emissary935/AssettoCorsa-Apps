@@ -485,7 +485,7 @@ function windowMain(dt)
                     preloadHoldTimer = 0.0
                 end
             end
-            if ui.checkbox("Shifter rest mode (5s in 3rd, +3s per upshift)", settings.shifterRestMode) then
+            if ui.checkbox("Shifter rest mode", settings.shifterRestMode) then
                 settings.shifterRestMode = not settings.shifterRestMode
                 if not settings.shifterRestMode and shiftState == "HOLD" then
                     shiftState = "IDLE"
