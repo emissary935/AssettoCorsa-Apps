@@ -6,7 +6,14 @@ Method 1: Content Manager
 Drag and drop the .zip archive directly into Content Manager and click Install.
 
 Method 2: Manual Installation
-Extract the apps folder from the archive directly into your Assetto Corsa root directory.
+Extract the apps folder from the archive directly into your Assetto Corsa root directory:
+
+assettocorsa/
+└── apps/
+    └── lua/
+        └── SmoothAnims/
+            ├── manifest.ini
+            └── SmoothAnims.lua
 
 
 

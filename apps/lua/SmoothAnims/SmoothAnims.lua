@@ -31,6 +31,24 @@ if settings.shifterRestMode == nil then
     settings.shifterRestMode = settings.asbrghmed or false
 end
 
+local leftArmNodeNames = {
+    "DRIVER:RIG_Clave_L", "DRIVER:RIG_Arm_L", "DRIVER:RIG_ForeArm_L", "DRIVER:RIG_ForeArm_END_L", "DRIVER:RIG_HAND_L",
+    "DRIVER:HAND_L_Thumb1", "DRIVER:HAND_L_Thumb1s", "DRIVER:HAND_L_Thumb2", "DRIVER:HAND_L_Thumb3", "DRIVER:HAND_L_Thumb3s",
+    "DRIVER:HAND_Index1", "DRIVER:HAND_Index2", "DRIVER:HAND_Index3",
+    "DRIVER:HAND_Middle1", "DRIVER:HAND_Middle2", "DRIVER:HAND_Middle3",
+    "DRIVER:HAND_Ring1", "DRIVER:HAND_Ring2", "DRIVER:HAND_Ring3",
+    "DRIVER:HAND_Pinkie1", "DRIVER:HAND_Pinkie2", "DRIVER:HAND_Pinkie3"
+}
+
+local rightArmNodeNames = {
+    "DRIVER:RIG_Clave_R", "DRIVER:RIG_Arm_R", "DRIVER:RIG_ForeArm_R", "DRIVER:RIG_ForeArm_END_R", "DRIVER:RIG_HAND_R",
+    "DRIVER:HAND_R_Thumb1", "DRIVER:HAND_R_Thumb2", "DRIVER:HAND_R_Thumb3",
+    "DRIVER:HAND_Index4", "DRIVER:HAND_Index5", "DRIVER:HAND_Index6",
+    "DRIVER:HAND_Middle4", "DRIVER:HAND_Middle5", "DRIVER:HAND_Middle6",
+    "DRIVER:HAND_Ring4", "DRIVER:HAND_Ring5", "DRIVER:HAND_Ring6",
+    "DRIVER:HAND_Pinkie4", "DRIVER:HAND_Pinkie5", "DRIVER:HAND_Pinkie6"
+}
+
 local visualSteer = 0
 local visualSteerVelocity = 0.0
 local carRoot = nil
@@ -63,6 +81,8 @@ local appliedWheelOffset = 0
 local wasOverridingAnim = false
 local wasGearUpPressed = false
 local wasGearDownPressed = false
+local nonShiftingNodes = {}
+local savedMatrices = {}
 
 local function findAnimFile(carsFolder, candidates)
     for _, fname in ipairs(candidates) do
@@ -148,6 +168,20 @@ local function loadCarData()
     totalShiftTime = totalMs / 1000
     reachFraction = math.clamp(pTime / totalMs, 0.25, 0.50)
     shifterHoldFraction = math.clamp((pTime + sTime * 0.5) / totalMs, 0.40, 0.60)
+
+    local invertHands = (cfg:get('SHIFT_ANIMATION', 'INVERT_SHIFTING_HANDS', 0) == 1)
+    local nonShiftingList = invertHands and rightArmNodeNames or leftArmNodeNames
+    nonShiftingNodes = {}
+    savedMatrices = {}
+    if carRoot and not carRoot:empty() then
+        for _, name in ipairs(nonShiftingList) do
+            local node = carRoot:findNodes(name)
+            if node and not node:empty() and node:getTransformationRaw() then
+                table.insert(nonShiftingNodes, node)
+                table.insert(savedMatrices, mat4x4())
+            end
+        end
+    end
 
     local pr = cfg:get('SHIFT_ANIMATION', 'PRELOAD_RPM', 0)
     if pr and pr > 2000 and pr < (redlineRpm + 500) then
@@ -314,7 +348,6 @@ function script.update(dt)
         end
         lastGear = currentGear
 
-        
         if shiftState == "SHIFTING" then
             rawShiftMix = 1.0
             shiftTimer = shiftTimer - dt
@@ -420,8 +453,16 @@ function script.update(dt)
         carRoot:setAnimation(animPath, progress, true)
         wasOverridingAnim = true
 
-        if hasShiftAnim and smoothedShiftMix > 0.01 and activeShiftPath then
+        if hasShiftAnim and smoothedShiftMix > 0.001 and activeShiftPath then
+            for i = 1, #nonShiftingNodes do
+                savedMatrices[i]:set(nonShiftingNodes[i]:getTransformationRaw())
+            end
+
             carRoot:blendAnimation(activeShiftPath, smoothedShiftProgress, smoothedShiftMix)
+
+            for i = 1, #nonShiftingNodes do
+                nonShiftingNodes[i]:getTransformationRaw():set(savedMatrices[i])
+            end
         end
 
         local targetOffset = 0
